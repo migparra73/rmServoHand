@@ -1,6 +1,6 @@
 /***The Following Library is for Romina Mir's Inspiring work on the tendon driven Servo Hand**/
 /***This is For the Distal(The Furthest) Region of the Finger. Here we use XC-330 M181-T***/
-/***Given Angle Limits -90(270) to 0  ***/
+/***Given Angle Limits -90(270) to 0  HI THIS A TEST***/
 #include <DynamixelShield.h> // for DXL_DIR_PIN definition
 #include <Dynamixel2Arduino.h> // For Dynamixel2Arduino Class definition.
 using namespace ControlTableItem;
