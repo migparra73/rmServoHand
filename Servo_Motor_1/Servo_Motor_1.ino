@@ -111,12 +111,14 @@ bool MotorControl_SetPosition(Dynamixel2Arduino *obj, uint8_t motorId, float des
     // this should be a function call.
     hardwareErrorStatus.all = obj->readControlTableItem(HARDWARE_ERROR_STATUS, motorId); // read HW error status register
     // Motor didn't work, let's find out why.
-
+    Serial1.println("----- Error ------");    
+    Serial1.write(hardwareErrorStatus.all, HEX);
+    Serial1.println("----- Error ------");
     // Maybe the hardware error status register can tell us.
     if(hardwareErrorStatus.all)
     {
       // Yes, there was an error - print it out and reboot the motor.
-      Serial1.print(hardwareErrorStatus.all, HEX);
+      Serial1.write(hardwareErrorStatus.all, HEX);
       // Reboot if we detect an input voltage error.
       obj->reboot(motorId);
       Serial1.println("Rebooting motor");
