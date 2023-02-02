@@ -196,6 +196,7 @@ void loop() {
   for (angle = 0.0; angle < 270.0; angle++)
   {
     MotorControl_SetPosition(&dxl, 3, 0.0);
+    Serial1.println("Setting to %f", angle);
     delay(2000);    
   }
 }
