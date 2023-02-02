@@ -1,6 +1,6 @@
 /***The Following Library is for Romina Mir's Inspiring work on the tendon driven Servo Hand**/
 /***This is For the Distal(The Furthest) Region of the Finger. Here we use XC-330 M181-T***/
-/***Given Angle Limits -90(270) to 0  HI THIS A TEST***/
+/***Given Angle Limits -90(270) to 0  ***/
 #include <DynamixelShield.h> // for DXL_DIR_PIN definition
 #include <Dynamixel2Arduino.h> // For Dynamixel2Arduino Class definition.
 using namespace ControlTableItem;
@@ -13,8 +13,8 @@ const float DXL_MIN_VEL = 1;
 const float DXL_MAX_VEL = 229; // rpm
 //const float DXL_GOAL_ANGLE = ;
 const float DXL_PEAK_VELOCITY = 2.0;
-const uint16_t DXL_M288_MAX_VELOCITY = 354; // To convert this number to RPM, multiply it by 0.229
-const uint16_t DXL_M181_MAX_VELOCITY = 559; // To convert this number to RPM, multiply it by 0.229
+const uint16_t DXL_M288_MAX_VELOCITY = 20; // To convert this number to RPM, multiply it by 0.229
+const uint16_t DXL_M181_MAX_VELOCITY = 20; // To convert this number to RPM, multiply it by 0.229
 
 const uint16_t DXL_M288_MIN_POS_LIMIT = 0;
 const uint16_t DXL_M288_MAX_POS_LIMIT = 1023;
@@ -73,8 +73,7 @@ motorValues_t motors[6] = { {1, DXL_M181, reverseDirection},
 
 
 bool _setPosition(Dynamixel2Arduino *obj, uint8_t motorId, float desiredAngle){
-        obj->setGoalPosition(motorId, desiredAngle, UNIT_DEGREE);
-        obj->writeControlTableItem(PROFILE_VELOCITY, motorId, 1000);
+        return obj->setGoalPosition(motorId, desiredAngle, UNIT_DEGREE);
 }
 
 #define END_OF_EEPROM_AREA_REGISTERS 64 // this tells us which register is the end of the eeprom area.
@@ -119,11 +118,10 @@ bool MotorControl_SetPosition(Dynamixel2Arduino *obj, uint8_t motorId, float des
       // Yes, there was an error - print it out and reboot the motor.
       Serial1.print(hardwareErrorStatus.all, HEX);
       // Reboot if we detect an input voltage error.
-      if(!obj->reboot(motorId))
-      {
-        // Uh oh! This is bad.
-        Serial1.println("Reboot failed");
-      }
+      obj->reboot(motorId);
+      Serial1.println("Rebooting motor");
+      delay(1000);
+      Serial1.println("Rebooting motor");
       return; // This caused the problem. No need to check further.
     }
 
@@ -194,37 +192,12 @@ void setup() {
 }
 
 void loop() {
-
-  Serial1.println("Setting proximal to 0");
-  MotorControl_SetPosition(&dxl, 2, 0.0);
-  MotorControl_SetPosition(&dxl, 3, 0.0);
-  MotorControl_SetPosition(&dxl, 5, 0.0); 
-  delay(2000);
-
-  Serial1.println("Setting distal to 0");
-  MotorControl_SetPosition(&dxl, 1, 180); // Look on the distal motor, it is marked "180" on what we want to be the 0 position. todo - Make 180 degrees appear to be 0.
-  MotorControl_SetPosition(&dxl, 4, 180);
-  MotorControl_SetPosition(&dxl, 5, 180);
-  delay(2000);
-
-  Serial1.println("Setting distal to 90");
-  MotorControl_SetPosition(&dxl, 1, 270); //    
-  MotorControl_SetPosition(&dxl, 4, 270);
-  MotorControl_SetPosition(&dxl, 5, 270);
-  delay(2000);
-
-
-  Serial1.println("Setting distal to 0");
-  MotorControl_SetPosition(&dxl, 1, 180); // Look on the distal motor, it is marked "180" on what we want to be the 0 position. todo - Make 180 degrees appear to be 0.
-  MotorControl_SetPosition(&dxl, 4, 180);
-  MotorControl_SetPosition(&dxl, 5, 180);
-  delay(2000);
-
-  Serial1.println("Setting proximal to 0");
-  MotorControl_SetPosition(&dxl, 2, 90.0);  
-  MotorControl_SetPosition(&dxl, 3, 90.0);
-  MotorControl_SetPosition(&dxl, 5, 90.0);
-  delay(2000);
+  float angle = 0.0;
+  for (angle = 0.0; angle < 270.0; angle++)
+  {
+    MotorControl_SetPosition(&dxl, 3, 0.0);
+    delay(2000);    
+  }
 }
 
 /**
