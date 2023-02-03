@@ -72,9 +72,9 @@ motorValues_t motors[6] = { {1, DXL_M181, reverseDirection},
                             {6, DXL_M181,  normalDirection}};
 
 
-bool _setPosition(Dynamixel2Arduino *obj, uint8_t motorId, float desiredAngle){
-        obj->setGoalPosition(motorId, desiredAngle, UNIT_DEGREE);
-        obj->writeControlTableItem(PROFILE_VELOCITY, motorId, 1000);
+bool _setPosition(Dynamixel2Arduino *obj, uint8_t motorId, float desiredAngle)
+{
+  return obj->setGoalPosition(motorId, desiredAngle, UNIT_DEGREE);
 }
 
 #define END_OF_EEPROM_AREA_REGISTERS 64 // this tells us which register is the end of the eeprom area.
@@ -103,38 +103,17 @@ bool MotorControl_WriteControlTable(Dynamixel2Arduino *obj, uint8_t item_idx, ui
   }
 }
 
-bool MotorControl_SetPosition(Dynamixel2Arduino *obj, uint8_t motorId, float desiredAngle){
-  hardwareErrorStatus_t hardwareErrorStatus;
-  hardwareErrorStatus.all = 0;
+bool MotorControl_SetPosition(Dynamixel2Arduino *obj, uint8_t motorId, float desiredAngle, hardwareErrorStatus_t *hardwareErrorStatus){
+  hardwareErrorStatus->all = 0;
   if(!_setPosition(obj, motorId, desiredAngle))
   {
     Serial1.println("Unsuccessfully set position");
     // this should be a function call.
-    hardwareErrorStatus.all = obj->readControlTableItem(HARDWARE_ERROR_STATUS, motorId); // read HW error status register
+    hardwareErrorStatus->all = obj->readControlTableItem(HARDWARE_ERROR_STATUS, motorId); // read HW error status register
     // Motor didn't work, let's find out why.
-
-    // Maybe the hardware error status register can tell us.
-    if(hardwareErrorStatus.all)
-    {
-      // Yes, there was an error - print it out and reboot the motor.
-      Serial1.print(hardwareErrorStatus.all, HEX);
-      // Reboot if we detect an input voltage error.
-      if(!obj->reboot(motorId))
-      {
-        // Uh oh! This is bad.
-        Serial1.println("Reboot failed");
-      }
-      return; // This caused the problem. No need to check further.
-    }
-
-    // Check to see if the motor exists!
-    if(!obj->ping(motorId))
-    {
-      // The motor isn't connected :) - just plug it back in.
-      Serial1.println("Motor was disconnected");
-      return;
-    }
+    return false;
   }
+  return true;
 }
 
 
@@ -195,36 +174,28 @@ void setup() {
 
 void loop() {
 
-  Serial1.println("Setting proximal to 0");
-  MotorControl_SetPosition(&dxl, 2, 0.0);
-  MotorControl_SetPosition(&dxl, 3, 0.0);
-  MotorControl_SetPosition(&dxl, 5, 0.0); 
-  delay(2000);
+  float desiredAngle = 0.0; // apparently float and double have the same size on arduino, 4 bytes.
+  uint32_t motorId = 3;
+  hardwareErrorStatus_t hwStatus;
+  int i;
 
-  Serial1.println("Setting distal to 0");
-  MotorControl_SetPosition(&dxl, 1, 180); // Look on the distal motor, it is marked "180" on what we want to be the 0 position. todo - Make 180 degrees appear to be 0.
-  MotorControl_SetPosition(&dxl, 4, 180);
-  MotorControl_SetPosition(&dxl, 5, 180);
-  delay(2000);
+  char arr2[5] = {'a'};
 
-  Serial1.println("Setting distal to 90");
-  MotorControl_SetPosition(&dxl, 1, 270); //    
-  MotorControl_SetPosition(&dxl, 4, 270);
-  MotorControl_SetPosition(&dxl, 5, 270);
-  delay(2000);
+  if(Serial1.readBytes((char*) &desiredAngle, sizeof(desiredAngle)))
+  {
+    Serial1.println("Setting motor to desired position.");
 
-
-  Serial1.println("Setting distal to 0");
-  MotorControl_SetPosition(&dxl, 1, 180); // Look on the distal motor, it is marked "180" on what we want to be the 0 position. todo - Make 180 degrees appear to be 0.
-  MotorControl_SetPosition(&dxl, 4, 180);
-  MotorControl_SetPosition(&dxl, 5, 180);
-  delay(2000);
-
-  Serial1.println("Setting proximal to 0");
-  MotorControl_SetPosition(&dxl, 2, 90.0);  
-  MotorControl_SetPosition(&dxl, 3, 90.0);
-  MotorControl_SetPosition(&dxl, 5, 90.0);
-  delay(2000);
+    if(MotorControl_SetPosition(&dxl, motorId, desiredAngle, &hwStatus))
+    {
+      Serial1.println("Success!");
+    }
+    else
+    {
+      Serial1.println("Fail");
+      Serial1.write(hwStatus.all);
+      dxl.reboot(motorId);
+    }
+  }
 }
 
 /**
