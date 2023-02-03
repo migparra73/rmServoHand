@@ -211,9 +211,6 @@ void loop() {
       {
         Serial1.println("Fail: Unknown error occured.");                
       }
-
-      Serial1.println("Fail");
-      Serial1.write(hwStatus.all);
       dxl.reboot(motorId);
     }
   }
