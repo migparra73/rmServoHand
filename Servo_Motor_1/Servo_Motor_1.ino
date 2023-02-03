@@ -181,7 +181,7 @@ void loop() {
 
   char arr2[5] = {'a'};
 
-  if(Serial1.readBytes((char*) &desiredAngle, sizeof(desiredAngle)))
+  if(Serial1.readBytes((char *) &desiredAngle, sizeof(desiredAngle)))
   {
     Serial1.println("Setting motor to desired position.");
 
@@ -191,6 +191,27 @@ void loop() {
     }
     else
     {
+      if(hwStatus.bits.electricalShock)
+      {
+        Serial1.println("Fail: Electrical shock detected");
+      }
+      else if(hwStatus.bits.overHeating)
+      {
+        Serial1.println("Fail: Overheating detected");        
+      }
+      else if(hwStatus.bits.overloadError)
+      {
+        Serial1.println("Fail: Overload error detected");        
+      }
+      else if(hwStatus.bits.voltageError)
+      {
+        Serial1.println("Fail: Voltage error detected");        
+      }
+      else
+      {
+        Serial1.println("Fail: Unknown error occured.");                
+      }
+
       Serial1.println("Fail");
       Serial1.write(hwStatus.all);
       dxl.reboot(motorId);
