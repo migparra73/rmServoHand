@@ -122,6 +122,7 @@ bool setupMotor(Dynamixel2Arduino *obj, uint8_t motorId, OperatingMode opMode, m
   success = obj->torqueOff(motorId);
   success &= obj->setOperatingMode(motorId, opMode); // EEPROM AREA
   success &= MotorControl_WriteControlTable(obj, DRIVE_MODE, motorId, (uint8_t) direction); // EEPROM AREA
+  success &= MotorControl_WriteControlTable(obj, HOMING_OFFSET, motorId, 512);
   success &= obj->torqueOn(motorId);
 
   return success;
