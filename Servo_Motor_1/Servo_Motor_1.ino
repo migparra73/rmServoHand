@@ -185,6 +185,8 @@ void loop() {
   if(Serial1.readBytes((char *) &desiredAngle, sizeof(desiredAngle)))
   {
     Serial1.println("Setting motor to desired position.");
+    Serial1.write((char*)&desiredAngle, sizeof(desiredAngle));
+    Serial1.println("");
 
     if(MotorControl_SetPosition(&dxl, motorId, desiredAngle, &hwStatus))
     {
