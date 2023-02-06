@@ -3,6 +3,7 @@
 /***Given Angle Limits -90(270) to 0  HI THIS A TEST***/
 #include <DynamixelShield.h> // for DXL_DIR_PIN definition
 #include <Dynamixel2Arduino.h> // For Dynamixel2Arduino Class definition.
+#include <assert.h>
 using namespace ControlTableItem;
 
 const uint8_t DXL_ID = 2; // remove eventually, because we have to control several motors
@@ -86,6 +87,7 @@ bool MotorControl_WriteControlTable(Dynamixel2Arduino *obj, uint8_t item_idx, ui
   {
     if(torqueEnable)
     {
+      assert(0); // Die here.
       Serial1.println("Torque enabled, value not programmed.");
       return false;
     }
