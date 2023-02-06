@@ -22,7 +22,7 @@ const uint16_t DXL_M288_MAX_POS_LIMIT = 4095;
 
 const uint16_t DXL_M181_MIN_POS_LIMIT = 0; // Not compensated, technically this is 180 degrees. But in our frame of reference, this is our 0.
 const uint16_t DXL_M181_MAX_POS_LIMIT = 4095; // Not compensated, technically this is 270 degrees. But in our frame of reference, this is our 90.
-#define HOST_COMMUNICATION_BAUDRATE 921600
+#define HOST_COMMUNICATION_BAUDRATE 9600
 #define DYNAMIXEL_COMMUNICATION_BAUDRATE 57600
 
 //8 bit bitfield, with an "all"
