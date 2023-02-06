@@ -17,10 +17,10 @@ const uint16_t DXL_M288_MAX_VELOCITY = 354; // To convert this number to RPM, mu
 const uint16_t DXL_M181_MAX_VELOCITY = 559; // To convert this number to RPM, multiply it by 0.229
 
 const uint16_t DXL_M288_MIN_POS_LIMIT = 0;
-const uint16_t DXL_M288_MAX_POS_LIMIT = 1023;
+const uint16_t DXL_M288_MAX_POS_LIMIT = 4095;
 
-const uint16_t DXL_M181_MIN_POS_LIMIT = 2045; // Not compensated, technically this is 180 degrees. But in our frame of reference, this is our 0.
-const uint16_t DXL_M181_MAX_POS_LIMIT = 3068; // Not compensated, technically this is 270 degrees. But in our frame of reference, this is our 90.
+const uint16_t DXL_M181_MIN_POS_LIMIT = 0; // Not compensated, technically this is 180 degrees. But in our frame of reference, this is our 0.
+const uint16_t DXL_M181_MAX_POS_LIMIT = 4095; // Not compensated, technically this is 270 degrees. But in our frame of reference, this is our 90.
 #define HOST_COMMUNICATION_BAUDRATE 921600
 #define DYNAMIXEL_COMMUNICATION_BAUDRATE 57600
 
@@ -107,24 +107,35 @@ bool MotorControl_SetPosition(Dynamixel2Arduino *obj, uint8_t motorId, float des
   hardwareErrorStatus->all = 0;
   if(!_setPosition(obj, motorId, desiredAngle))
   {
-    Serial1.println("Unsuccessfully set position");
     // this should be a function call.
+    delay(1000);
     hardwareErrorStatus->all = obj->readControlTableItem(HARDWARE_ERROR_STATUS, motorId); // read HW error status register
     // Motor didn't work, let's find out why.
+    Serial1.write((char *)hardwareErrorStatus->all, sizeof(uint8_t));
     return false;
   }
   return true;
 }
 
 
-bool setupMotor(Dynamixel2Arduino *obj, uint8_t motorId, OperatingMode opMode, motorDirection_e direction){
+bool setupMotor(Dynamixel2Arduino *obj, uint8_t motorIdx, OperatingMode opMode, motorDirection_e direction)
+{
   bool success = false;
-  success = obj->torqueOff(motorId);
-  success &= obj->setOperatingMode(motorId, opMode); // EEPROM AREA
-  success &= MotorControl_WriteControlTable(obj, DRIVE_MODE, motorId, (uint8_t) direction); // EEPROM AREA
-  success &= MotorControl_WriteControlTable(obj, HOMING_OFFSET, motorId, 512);
-  success &= obj->torqueOn(motorId);
-
+  success = obj->torqueOff(motors[motorIdx].motorId);
+  success &= obj->setOperatingMode(motors[motorIdx].motorId, opMode); // EEPROM AREA
+  success &= MotorControl_WriteControlTable(obj, DRIVE_MODE, motors[motorIdx].motorId, (uint8_t) direction); // EEPROM AREA
+  success &= MotorControl_WriteControlTable(obj, HOMING_OFFSET, motors[motorIdx].motorId, 0);
+  if(DXL_M181 == motors[motorIdx].type)
+  {
+    MotorControl_WriteControlTable(&dxl, MAX_POSITION_LIMIT, motors[motorIdx].motorId, DXL_M181_MAX_POS_LIMIT);
+    MotorControl_WriteControlTable(&dxl, MIN_POSITION_LIMIT, motors[motorIdx].motorId, DXL_M181_MIN_POS_LIMIT);
+  }
+  else if(DXL_M288 == motors[motorIdx].type)
+  {
+    MotorControl_WriteControlTable(&dxl, MAX_POSITION_LIMIT, motors[motorIdx].motorId, DXL_M288_MAX_POS_LIMIT);
+    MotorControl_WriteControlTable(&dxl, MIN_POSITION_LIMIT, motors[motorIdx].motorId, DXL_M288_MIN_POS_LIMIT);    
+  }
+  success &= obj->torqueOn(motors[motorIdx].motorId);
   return success;
 }
 
@@ -145,20 +156,6 @@ bool MotorControl_Init(Dynamixel2Arduino *obj, uint8_t motorIdx)
 {  
   checkIfMotorAlive(&dxl, motors[motorIdx].motorId);
   setupMotor(obj, motors[motorIdx].motorId, OP_POSITION, motors[motorIdx].direction); // Solo finger (Motor 1)
-
-  if(DXL_M181 == motors[motorIdx].type)
-  {
-    MotorControl_WriteControlTable(obj, PROFILE_VELOCITY, motors[motorIdx].motorId, DXL_M181_MAX_VELOCITY);
-    MotorControl_WriteControlTable(&dxl, MAX_POSITION_LIMIT, motors[motorIdx].motorId, DXL_M181_MAX_POS_LIMIT);
-    MotorControl_WriteControlTable(&dxl, MIN_POSITION_LIMIT, motors[motorIdx].motorId, DXL_M181_MIN_POS_LIMIT);
-  }
-  else if(DXL_M288 == motors[motorIdx].type)
-  {
-    MotorControl_WriteControlTable(obj, PROFILE_VELOCITY, motors[motorIdx].motorId, DXL_M288_MAX_VELOCITY);
-    MotorControl_WriteControlTable(&dxl, MAX_POSITION_LIMIT, motors[motorIdx].motorId, DXL_M288_MAX_POS_LIMIT);
-    MotorControl_WriteControlTable(&dxl, MIN_POSITION_LIMIT, motors[motorIdx].motorId, DXL_M288_MIN_POS_LIMIT);    
-  }
-
 }
 
 void setup() {
