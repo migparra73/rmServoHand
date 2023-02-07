@@ -220,38 +220,7 @@ void setup()
 }
 
 
-void loop() {
-  float desiredAngle = 0.0; // apparently float and double have the same size on arduino, 4 bytes.
-  uint8_t motorName = 1;
-  hardwareErrorStatus_t hwStatus;
-  int i;
-  float currentAngle = 0.0;
-  //1, 3, 5 bottom motors
-  for(i = 1; i<NUMBER_OF_MOTORS; i = i + 2)
-  {
-    for(currentAngle = 0.0; currentAngle < 180.0; currentAngle = currentAngle + 10.0)
-    {
-        MotorControl_SetPositionWrapper(&dxl, i, currentAngle, &hwStatus);
-    }
-  }
 
-  for(i = 1; i<=NUMBER_OF_MOTORS; i = i + 2)
-  {
-    MotorControl_SetPositionWrapper(&dxl, i, 90.0, &hwStatus);
-  }
-
-  for(i = 2; i<=NUMBER_OF_MOTORS; i = i + 2)
-  {
-    for(currentAngle = 0.0; currentAngle < 180.0; currentAngle = currentAngle + 10.0)
-    {
-        MotorControl_SetPositionWrapper(&dxl, i, currentAngle, &hwStatus);
-    }
-  }
-
-}
-
-
-/*
 void loop() {
   float desiredAngle = 0.0; // apparently float and double have the same size on arduino, 4 bytes.
   uint8_t motorName = 1;
@@ -270,7 +239,6 @@ void loop() {
   MotorControl_SetPosition(&dxl, motorName, desiredAngle, &hwStatus);
   }
 }
-*/
 
 /**
 // the setup function runs once when you press reset or power the board
