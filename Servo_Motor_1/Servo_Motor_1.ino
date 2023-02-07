@@ -66,7 +66,7 @@ typedef struct
 } motorValues_t;
 
 motorValues_t motors[6] = { {1, DXL_M181, reverseDirection},
-                            {2, DXL_M288, reverseDirection},
+                            {2, DXL_M288, normalDirection},
                             {3, DXL_M288,  normalDirection},
                             {4, DXL_M181,  normalDirection},
                             {5, DXL_M288,  normalDirection},
@@ -166,16 +166,24 @@ void setup() {
   dxl.begin(DYNAMIXEL_COMMUNICATION_BAUDRATE); //  Sets up communication with Dynamixel servos 
   dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
   
+
+
   for(int i = 0; i < numberOfMotors; i++)
   {
     MotorControl_Init(&dxl, i);
   }
+ 
+  hardwareErrorStatus_t hwStatus;
+  // MotorControl_SetPosition(&dxl, 5, 270.0, &hwStatus);
+    
 }
+
+
 
 void loop() {
 
   float desiredAngle = 0.0; // apparently float and double have the same size on arduino, 4 bytes.
-  uint32_t motorId = 3;
+  uint32_t motorId = 2;
   hardwareErrorStatus_t hwStatus;
   int i;
 
