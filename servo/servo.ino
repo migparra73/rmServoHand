@@ -1,85 +1,24 @@
-/***The Following Library is for Romina Mir's Inspiring work on the tendon driven Servo Hand**/
-/***This is For the Distal(The Furthest) Region of the Finger. Here we use XC-330 M181-T***/
-/***Given Angle Limits -90(270) to 0  HI THIS A TEST***/
+// This is done to make sure we have the best code possible. Warnings => bugs later on.
+#pragma GCC diagnostic error "-Wall"
+#pragma GCC diagnostic error "-Wpedantic"
+
 #include <DynamixelShield.h> // for DXL_DIR_PIN definition
 #include <Dynamixel2Arduino.h> // For Dynamixel2Arduino Class definition.
 #include <assert.h>
+#include "servo_api.h"
+#include "servo_types.h"
 using namespace ControlTableItem;
-
-const uint8_t DXL_ID = 2; // remove eventually, because we have to control several motors
-const float DXL_PROTOCOL_VERSION = 2.0;
-const float DXL_MIN_ANGLE = 0; 
-const float DXL_MAX_ANGLE = 90;
-const float DXL_MIN_VEL = 1; 
-const float DXL_MAX_VEL = 229; // rpm
-//const float DXL_GOAL_ANGLE = ;
-const float DXL_PEAK_VELOCITY = 2.0;
-const uint16_t DXL_M288_MAX_VELOCITY = 354; // To convert this number to RPM, multiply it by 0.229
-const uint16_t DXL_M181_MAX_VELOCITY = 559; // To convert this number to RPM, multiply it by 0.229
-
-const uint16_t DXL_M288_MIN_POS_LIMIT = 0;
-const uint16_t DXL_M288_MAX_POS_LIMIT = 4095;
-
-const uint16_t DXL_M181_MIN_POS_LIMIT = 0; // Not compensated, technically this is 180 degrees. But in our frame of reference, this is our 0.
-const uint16_t DXL_M181_MAX_POS_LIMIT = 4095; // Not compensated, technically this is 270 degrees. But in our frame of reference, this is our 90.
-#define HOST_COMMUNICATION_BAUDRATE 9600
-#define DYNAMIXEL_COMMUNICATION_BAUDRATE 57600
-
-//8 bit bitfield, with an "all"
-typedef struct
-{
-  union
-  {
-    struct
-    {
-      uint8_t voltageError : 1; // LSB
-      uint8_t unused1 : 1;
-      uint8_t overHeating : 1;
-      uint8_t unused2 : 1;
-      uint8_t electricalShock : 1;
-      uint8_t overloadError : 1;
-      uint8_t unused3 :  2; // MSB
-    } bits;
-    uint8_t all;
-  };
-} hardwareErrorStatus_t;
-
-typedef enum
-{
-  normalDirection = 0x00,
-  reverseDirection = 0x01
-} motorDirection_e;
-
-typedef enum
-{
-  DXL_M181,
-  DXL_M288
-} motorType_e;
 
 Dynamixel2Arduino dxl(Serial, DXL_DIR_PIN); // When initializing the dxl class, you need to feed in the Serial port and direction pin you are going to use.
 
-typedef struct
-{
-  uint8_t motorName;
-  motorType_e type;
-  motorDirection_e direction;
-} motorValues_t;
-
-#define NUMBER_OF_MOTORS 6
-
-motorValues_t motors[NUMBER_OF_MOTORS] = { {1, DXL_M181, normalDirection},
-                            {2, DXL_M288, normalDirection},
+motorValues_t motors[NUMBER_OF_MOTORS] = 
+                          { {1, DXL_M181,  normalDirection},
+                            {2, DXL_M288,  normalDirection},
                             {3, DXL_M288,  normalDirection},
                             {4, DXL_M181,  normalDirection},
                             {5, DXL_M288,  normalDirection},
                             {6, DXL_M181,  normalDirection}};
 
-typedef struct
-{
-  float homeAngle;
-  float straightAngle;
-  float bentOutAngle;
-} motorTranslationValues_t;
 
 motorTranslationValues_t translations[NUMBER_OF_MOTORS] = {
   {180.0, 90.0, 0.0},
@@ -104,6 +43,7 @@ float translateAngle(uint8_t tableIdx, float desiredAngle)
   {
     realAngle = (0.5*(desiredAngle)) + translations[tableIdx].homeAngle;
   }
+  return realAngle;
 }
 
 
@@ -145,7 +85,7 @@ bool MotorControl_SetPositionWrapper(Dynamixel2Arduino *obj, uint8_t tableIdx, f
 {
   float actualAngle = 0.0;
   actualAngle = translateAngle(tableIdx, desiredAngle);
-  MotorControl_SetPosition(obj, motors[tableIdx].motorName, actualAngle, hardwareErrorStatus);
+  return MotorControl_SetPosition(obj, motors[tableIdx].motorName, actualAngle, hardwareErrorStatus);
 }
 
 bool MotorControl_SetPosition(Dynamixel2Arduino *obj, uint8_t motorName, float desiredAngle, hardwareErrorStatus_t *hardwareErrorStatus){
@@ -185,22 +125,27 @@ bool setupMotor(Dynamixel2Arduino *obj, uint8_t motorName, OperatingMode opMode,
 
 bool checkIfMotorAlive(Dynamixel2Arduino *obj, uint8_t motorName)
 {
+  bool status = false;
   // Check to see if the Dynamixel is alive
   if(obj->ping(motorName))
   {
+    status = true;
     Serial1.println("Dynamixel detected");
   }
   else
   {
     Serial1.println("Not detected");
   }
+  return status;
 }
 
 // THIS FUNCTION USES INDEX, NOT THE MOTOR ID.
 bool MotorControl_Init(Dynamixel2Arduino *obj, uint8_t tableIdx)
 {  
-  checkIfMotorAlive(&dxl, motors[tableIdx].motorName);
-  setupMotor(obj, motors[tableIdx].motorName, OP_POSITION, motors[tableIdx].direction, motors[tableIdx].type); // Solo finger (Motor 1)
+  bool localStatus = false;
+  localStatus = checkIfMotorAlive(&dxl, motors[tableIdx].motorName);
+  localStatus = localStatus && (setupMotor(obj, motors[tableIdx].motorName, OP_POSITION, motors[tableIdx].direction, motors[tableIdx].type)); // Solo finger (Motor 1)
+  return localStatus;
 }
 
 void setup() 
@@ -220,25 +165,24 @@ void setup()
 }
 
 
-
-void loop() {
-  float desiredAngle = 0.0; // apparently float and double have the same size on arduino, 4 bytes.
-  uint8_t motorName = 1;
-  hardwareErrorStatus_t hwStatus;
-  int i;
-
-  char arr2[5] = {'a'};
-
-  if(Serial1.readBytes((char *) &desiredAngle, sizeof(desiredAngle)))
-  {
-    Serial1.println("Setting motor to desired position.");
-    Serial1.write((char*)&desiredAngle, sizeof(desiredAngle));
-    Serial1.println("");
-
-  //if(MotorControl_SetPositionWrapper(&dxl, motorName-1, desiredAngle, &hwStatus))
-  MotorControl_SetPosition(&dxl, motorName, desiredAngle, &hwStatus);
-  }
+bool packetRead(dataPacket_t *pCmds, size_t size)
+{
+  return Serial1.readBytes((char *) pCmds, size);
 }
+
+void loop(void) 
+{
+  dataPacket_t motorCommands[6]; 
+  static_assert(sizeof(motorCommands) == 54, "motorCommands is not 54 bytes!");
+
+  //hardwareErrorStatus_t hwStatus;
+  if(packetRead(motorCommands, sizeof(motorCommands)))
+  {
+    // Do something.
+  }
+
+}
+
 
 /**
 // the setup function runs once when you press reset or power the board
