@@ -1,5 +1,10 @@
 #pragma once
 
+#include <Arduino.h>
+#include <DynamixelShield.h> // for DXL_DIR_PIN definition
+#include <Dynamixel2Arduino.h> // For Dynamixel2Arduino Class definition.
+#include <assert.h>
+
 const uint8_t DXL_ID = 2; // remove eventually, because we have to control several motors
 const float DXL_PROTOCOL_VERSION = 2.0;
 const float DXL_MIN_ANGLE = 0; 
@@ -73,3 +78,19 @@ typedef struct __attribute__((packed))
 } dataPacket_t;
 
 static_assert(sizeof(dataPacket_t) == 9, "dataPacket_t is not 9 bytes!");
+
+/**
+typedef struct XELInfoSyncWrite{
+  uint8_t* p_data;
+  uint8_t id;
+} __attribute__((packed)) XELInfoSyncWrite_t;
+
+typedef struct InfoSyncWriteInst{
+  uint16_t addr;
+  uint16_t addr_length;
+  XELInfoSyncWrite_t* p_xels;
+  uint8_t xel_count;
+  bool is_info_changed;
+  InfoSyncBulkBuffer_t packet;
+} __attribute__((packed)) InfoSyncWriteInst_t;
+ */

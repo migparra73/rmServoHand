@@ -2,12 +2,12 @@
 #pragma GCC diagnostic error "-Wall"
 #pragma GCC diagnostic error "-Wpedantic"
 
+#include <Arduino.h>
 #include <DynamixelShield.h> // for DXL_DIR_PIN definition
 #include <Dynamixel2Arduino.h> // For Dynamixel2Arduino Class definition.
 #include <assert.h>
 #include "servo_api.h"
 #include "servo_types.h"
-using namespace ControlTableItem;
 
 Dynamixel2Arduino dxl(Serial, DXL_DIR_PIN); // When initializing the dxl class, you need to feed in the Serial port and direction pin you are going to use.
 
@@ -79,8 +79,7 @@ bool MotorControl_WriteControlTable(Dynamixel2Arduino *obj, uint8_t item_idx, ui
   }
 }
 
-
-// Top level handler for handling indexes instead of Ids
+// Top level handler for handling indexes instead of Ids. Used for setting a single motor.
 bool MotorControl_SetPositionWrapper(Dynamixel2Arduino *obj, uint8_t tableIdx, float desiredAngle, hardwareErrorStatus_t *hardwareErrorStatus)
 {
   float actualAngle = 0.0;
@@ -88,12 +87,18 @@ bool MotorControl_SetPositionWrapper(Dynamixel2Arduino *obj, uint8_t tableIdx, f
   return MotorControl_SetPosition(obj, motors[tableIdx].motorName, actualAngle, hardwareErrorStatus);
 }
 
+// Does a sync write to set all motors to move at the exact same time.
+bool MotorControl_SetPositionSyncWrite(Dynamixel2Arduino *obj, DYNAMIXEL::InfoSyncWriteInst_t *sWriteParams)
+{
+  return obj->syncWrite(sWriteParams);
+}
+
 bool MotorControl_SetPosition(Dynamixel2Arduino *obj, uint8_t motorName, float desiredAngle, hardwareErrorStatus_t *hardwareErrorStatus){
   if(!_setPosition(obj, motorName, desiredAngle))
   {
     // this should be a function call.
     delay(1000);
-    hardwareErrorStatus->all = obj->readControlTableItem(HARDWARE_ERROR_STATUS, motorName); // read HW error status register
+    hardwareErrorStatus->all = obj->readControlTableItem(ControlTableItem::HARDWARE_ERROR_STATUS, motorName); // read HW error status register
     // Motor didn't work, let's find out why.
     Serial1.write((char *)hardwareErrorStatus->all, sizeof(uint8_t));
     return false;
@@ -101,23 +106,21 @@ bool MotorControl_SetPosition(Dynamixel2Arduino *obj, uint8_t motorName, float d
   return true;
 }
 
-
 bool setupMotor(Dynamixel2Arduino *obj, uint8_t motorName, OperatingMode opMode, motorDirection_e direction, motorType_e motorType)
 {
   bool success = false;
   success = obj->torqueOff(motorName);
   success &= obj->setOperatingMode(motorName, opMode); // EEPROM AREA
-  success &= MotorControl_WriteControlTable(obj, DRIVE_MODE, motorName, (uint8_t) direction); // EEPROM AREA
-  success &= MotorControl_WriteControlTable(obj, HOMING_OFFSET, motorName, 0);
+  success &= MotorControl_WriteControlTable(obj, ControlTableItem::DRIVE_MODE, motorName, (uint8_t) direction); // EEPROM AREA
   if(DXL_M181 == motorType)
   {
-    MotorControl_WriteControlTable(&dxl, MAX_POSITION_LIMIT, motorName, DXL_M181_MAX_POS_LIMIT);
-    MotorControl_WriteControlTable(&dxl, MIN_POSITION_LIMIT, motorName, DXL_M181_MIN_POS_LIMIT);
+    MotorControl_WriteControlTable(&dxl, ControlTableItem::MAX_POSITION_LIMIT, motorName, DXL_M181_MAX_POS_LIMIT);
+    MotorControl_WriteControlTable(&dxl, ControlTableItem::MIN_POSITION_LIMIT, motorName, DXL_M181_MIN_POS_LIMIT);
   }
   else if(DXL_M288 == motorType)
   {
-    MotorControl_WriteControlTable(&dxl, MAX_POSITION_LIMIT, motorName, DXL_M288_MAX_POS_LIMIT);
-    MotorControl_WriteControlTable(&dxl, MIN_POSITION_LIMIT, motorName, DXL_M288_MIN_POS_LIMIT);    
+    MotorControl_WriteControlTable(&dxl, ControlTableItem::MAX_POSITION_LIMIT, motorName, DXL_M288_MAX_POS_LIMIT);
+    MotorControl_WriteControlTable(&dxl, ControlTableItem::MIN_POSITION_LIMIT, motorName, DXL_M288_MIN_POS_LIMIT);    
   }
   success &= obj->torqueOn(motorName);
   return success;
@@ -148,37 +151,89 @@ bool MotorControl_Init(Dynamixel2Arduino *obj, uint8_t tableIdx)
   return localStatus;
 }
 
-void setup() 
+void setNumberOfDevicesToWrite(uint8_t numberOfDevices, DYNAMIXEL::InfoSyncWriteInst_t *sWriteParams)
 {
-  const int numberOfMotors = NUMBER_OF_MOTORS;
+  sWriteParams->xel_count = numberOfDevices;
+  sWriteParams->addr = ControlTableItem::GOAL_POSITION;
+  sWriteParams->addr_length = 4; // takes a 16 bit number
+}
+
+#define DXL_SPECIFIC_FLOAT_ANGLE_TO_INT_ANGLE_CONVERSION_FACTOR 11.375 // 11.375 integer degree units per floating point degree
+// Does 2 things: 1 - converts the input angle to the real input angle found by testing to get the desired output (this changes per motor)
+// and 2 - converts the floating point angle to its integer representation, betweeen 0 and 4095.
+int angle2Int(uint8_t idx, float inputAngle)
+{
+  // The mapping from angle to integer is 0 - 4095 = 0.0 to 360.0.
+  // First, we will need to convert the angle to its correct mapping, then convert to integer.
+  float interimResult = NAN;
+  uint32_t returnedData = (uint32_t) -1;
+  interimResult = translateAngle(idx, inputAngle);
+  if(NAN == interimResult || NAN == inputAngle)
+  {
+    assert(0); // die if the input is bad, or if the interim result is bad.
+  }
+  // Now that we have the desired angle, we can translate this to an integer between 0 and 4095.
+  returnedData = (int) (DXL_SPECIFIC_FLOAT_ANGLE_TO_INT_ANGLE_CONVERSION_FACTOR * interimResult);
+  if(returnedData > 4095)
+  {
+    assert(0); // We should never exceed 4095.
+  }
+  return returnedData;
+}
+
+// Uses some fancy pointer stuff to avoid a memcpy when setting goal position.
+void setGoalPositionBulkWrite(uint8_t idx, uint32_t position, DYNAMIXEL::InfoSyncWriteInst_t *sWriteParams)
+{
+  // To avoid the overhead of memcpy, we will cast the pointer of the data buffer to a uint32_t pointer, in order to shove in our data.
+  //@todo rewrite me
+  //uint32_t *dataPtr = (uint32_t *)(sWriteParams->xel[idx].data);
+  //*dataPtr = position;
+}
+
+// Here we will setup the burst write packet to target our motors.
+void setupDynamixelPositionPacket(uint8_t idx, dataPacket_t *pCmds, DYNAMIXEL::InfoSyncWriteInst_t *sWriteParams)
+{
+  // @todo rewrite me with the 2.0 format
+  //sWriteParams->xel[idx].id = motors[idx].motorName;
+  //setGoalPositionBulkWrite(idx, angle2Int(pCmds[idx].desiredPosition), sWriteParams));
+}
+
+void setup(void) 
+{
+  hardwareErrorStatus_t hwStatus;
   Serial1.begin(HOST_COMMUNICATION_BAUDRATE); // Sets up the external serial port (USB dongle thing)
   dxl.begin(DYNAMIXEL_COMMUNICATION_BAUDRATE); //  Sets up communication with Dynamixel servos 
   dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
 
-  for(int i = 0; i < numberOfMotors; i++)
+  for(int i = 0; i < NUMBER_OF_MOTORS; i++)
   {
     MotorControl_Init(&dxl, i);
   }
- 
-  hardwareErrorStatus_t hwStatus;
   MotorControl_SetPosition(&dxl, 2, 270.0, &hwStatus);
 }
 
-
 bool packetRead(dataPacket_t *pCmds, size_t size)
 {
-  return Serial1.readBytes((char *) pCmds, size);
+  return Serial1.readBytes((uint8_t *) pCmds, size);
 }
 
-void loop(void) 
+void loop(void)
 {
   dataPacket_t motorCommands[6]; 
   static_assert(sizeof(motorCommands) == 54, "motorCommands is not 54 bytes!");
-
   //hardwareErrorStatus_t hwStatus;
+  DYNAMIXEL::InfoSyncWriteInst_t syncWriteParam;
+
+  memset((void *) &syncWriteParam, 0x00, sizeof(DYNAMIXEL::InfoSyncWriteInst_t));
+  memset((void *) &motorCommands, 0x00, sizeof(dataPacket_t)*6);
+
   if(packetRead(motorCommands, sizeof(motorCommands)))
   {
-    // Do something.
+    for(int i = 0; i < NUMBER_OF_MOTORS; i++)
+    {
+      setupDynamixelPositionPacket(i, motorCommands, &syncWriteParam);
+      MotorControl_SetPositionSyncWrite(&dxl, &syncWriteParam);
+    }
   }
 
 }
