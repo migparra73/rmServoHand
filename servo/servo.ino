@@ -55,7 +55,6 @@ bool _setPosition(Dynamixel2Arduino *obj, uint8_t motorName, float desiredAngle)
   return obj->setGoalPosition(motorName, desiredAngle, UNIT_DEGREE);
 }
 
-#define END_OF_EEPROM_AREA_REGISTERS 64 // this tells us which register is the end of the eeprom area.
 // This function will make sure that we can write safely to the control table, based on if the torque enable bit is true.
 bool MotorControl_WriteControlTable(Dynamixel2Arduino *obj, uint8_t item_idx, uint8_t motorName, uint32_t data)
 {
@@ -197,7 +196,6 @@ void setGoalPositionBulkWrite(uint8_t idx, uint32_t position, uint32_t *buf)
 // Here we will setup the burst write packet to target our motors.
 void setupDynamixelPositionPacket(uint8_t idx, dataPacket_t *pCmds, DYNAMIXEL::InfoSyncWriteInst_t *sWriteParams)
 {
-  // @todo rewrite me with the 2.0 format
   if(sWriteParams == NULL)
   {
     assert(0);
@@ -256,9 +254,7 @@ void loop(void)
       setupDynamixelPositionPacket(i, motorCommands, &syncWriteParam);
     }
     MotorControl_SetPositionSyncWrite(&dxl, &syncWriteParam);
-
   }
-
 }
 
 

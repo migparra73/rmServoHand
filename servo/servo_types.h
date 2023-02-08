@@ -11,7 +11,6 @@ const float DXL_MIN_ANGLE = 0;
 const float DXL_MAX_ANGLE = 90;
 const float DXL_MIN_VEL = 1; 
 const float DXL_MAX_VEL = 229; // rpm
-//const float DXL_GOAL_ANGLE = ;
 const float DXL_PEAK_VELOCITY = 2.0;
 const uint16_t DXL_M288_MAX_VELOCITY = 354; // To convert this number to RPM, multiply it by 0.229
 const uint16_t DXL_M181_MAX_VELOCITY = 559; // To convert this number to RPM, multiply it by 0.229
@@ -24,6 +23,7 @@ const uint16_t DXL_M181_MAX_POS_LIMIT = 4095; // Not compensated, technically th
 #define HOST_COMMUNICATION_BAUDRATE 9600
 #define DYNAMIXEL_COMMUNICATION_BAUDRATE 57600
 #define NUMBER_OF_MOTORS 6
+#define END_OF_EEPROM_AREA_REGISTERS 64 // this tells us which register is the end of the eeprom area.
 
 //8 bit bitfield, with an "all"
 typedef struct
