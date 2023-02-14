@@ -12,8 +12,8 @@
 Dynamixel2Arduino dxl(Serial, DXL_DIR_PIN); // When initializing the dxl class, you need to feed in the Serial port and direction pin you are going to use.
 
 motorValues_t g_motors[NUMBER_OF_MOTORS] = 
-                          { {1, DXL_M181,  normalDirection},
-                            {2, DXL_M288,  normalDirection},
+                          { {1, DXL_M181,  reverseDirection},
+                            {2, DXL_M288,  reverseDirection},
                             {3, DXL_M288,  normalDirection},
                             {4, DXL_M181,  normalDirection},
                             {5, DXL_M288,  normalDirection},
@@ -22,9 +22,9 @@ motorValues_t g_motors[NUMBER_OF_MOTORS] =
 
 motorTranslationValues_t g_translations[NUMBER_OF_MOTORS] = {
   {180.0, 90.0, 0.0},
-  {180.0, 270.0, 360.0},
-  {360.0, 270.0, 180.0},
-  {270.0, 180.0, 90.0},
+  {180.0, 90.0, 0.0},
+  {0.0,   90.0, 180.0},
+  {90.0, 180.0, 270.0},
   {180.0, 270.0, 360.0},
   {90.0, 180.0, 270.0}};
 
@@ -40,11 +40,11 @@ float translateAngle(uint8_t tableIdx, float desiredAngle)
   // If home is 360 and out is 180, that means that we should map 0 -> 360 and 180 to 180.
   if(g_translations[tableIdx].homeAngle > g_translations[tableIdx].bentOutAngle)
   {
-    realAngle = (-0.5*(desiredAngle)) + g_translations[tableIdx].homeAngle;
+    realAngle = -((desiredAngle)) + g_translations[tableIdx].homeAngle;
   }
   else
   {
-    realAngle = (0.5*(desiredAngle)) + g_translations[tableIdx].homeAngle;
+    realAngle = ((desiredAngle)) + g_translations[tableIdx].homeAngle;
   }
   return realAngle;
 }
@@ -64,7 +64,6 @@ bool MotorControl_WriteControlTable(Dynamixel2Arduino *obj, uint8_t item_idx, ui
     if(torqueEnable)
     {
       assert(0); // Die here.
-      Serial1.println("Torque enabled, value not programmed.");
       return false;
     }
     else
@@ -82,11 +81,12 @@ bool MotorControl_WriteControlTable(Dynamixel2Arduino *obj, uint8_t item_idx, ui
 }
 
 // Top level handler for handling indexes instead of Ids. Used for setting a single motor.
-bool MotorControl_SetPositionWrapper(Dynamixel2Arduino *obj, uint8_t tableIdx, float desiredAngle, hardwareErrorStatus_t *hardwareErrorStatus)
+bool MotorControl_SetPositionWrapper(Dynamixel2Arduino *obj, uint8_t motorName, float desiredAngle, hardwareErrorStatus_t *hardwareErrorStatus)
 {
   float actualAngle = 0.0;
+  int tableIdx = motorName - 1;
   actualAngle = translateAngle(tableIdx, desiredAngle);
-  return MotorControl_SetPosition(obj, g_motors[tableIdx].motorName, actualAngle, hardwareErrorStatus);
+  return MotorControl_SetPosition(obj, motorName, actualAngle, hardwareErrorStatus);
 }
 
 // Does a sync write to set all motors to move at the exact same time.
@@ -102,7 +102,7 @@ bool MotorControl_SetPosition(Dynamixel2Arduino *obj, uint8_t motorName, float d
     delay(1000);
     hardwareErrorStatus->all = obj->readControlTableItem(ControlTableItem::HARDWARE_ERROR_STATUS, motorName); // read HW error status register
     // Motor didn't work, let's find out why.
-    Serial1.write((char *)hardwareErrorStatus->all, sizeof(uint8_t));
+    //Serial1.write((char *)hardwareErrorStatus->all, sizeof(uint8_t));
     return false;
   }
   return true;
@@ -135,11 +135,11 @@ bool checkIfMotorAlive(Dynamixel2Arduino *obj, uint8_t motorName)
   if(obj->ping(motorName))
   {
     status = true;
-    Serial1.println("Dynamixel detected");
+    //Serial1.println("Dynamixel detected");
   }
   else
   {
-    Serial1.println("Not detected");
+    //Serial1.println("Not detected");
   }
   return status;
 }
@@ -196,6 +196,7 @@ void setGoalPositionBulkWrite(uint8_t idx, uint32_t position, uint32_t *buf)
 // Here we will setup the burst write packet to target our motors.
 void setupDynamixelPositionPacket(uint8_t idx, dataPacket_t *pCmds, DYNAMIXEL::InfoSyncWriteInst_t *sWriteParams)
 {
+  uint32_t *pBuf;
   if(sWriteParams == NULL)
   {
     assert(0);
@@ -205,7 +206,8 @@ void setupDynamixelPositionPacket(uint8_t idx, dataPacket_t *pCmds, DYNAMIXEL::I
   {
     assert(0);
   }
-  uint32_t *pBuf = (uint32_t *) sWriteParams->p_xels[idx].p_data;
+  
+  *pBuf = (uint32_t *) sWriteParams->p_xels[idx].p_data;
   *pBuf = angle2Int(idx, pCmds[idx].desiredPosition);
 }
 
@@ -241,7 +243,7 @@ void loop(void)
 {
   dataPacket_t motorCommands[6]; 
   static_assert(sizeof(motorCommands) == 54, "motorCommands is not 54 bytes!");
-  //hardwareErrorStatus_t hwStatus;
+  hardwareErrorStatus_t hwStatus;
   DYNAMIXEL::InfoSyncWriteInst_t syncWriteParam;
 
   memset((void *) &syncWriteParam, 0x00, sizeof(DYNAMIXEL::InfoSyncWriteInst_t));
@@ -251,10 +253,15 @@ void loop(void)
   {
     for(int i = 0; i < NUMBER_OF_MOTORS; i++)
     {
-      setupDynamixelPositionPacket(i, motorCommands, &syncWriteParam);
+      setupDynamixelPositionPacket(2, motorCommands, &syncWriteParam);
     }
     MotorControl_SetPositionSyncWrite(&dxl, &syncWriteParam);
   }
+  else
+  {
+    Serial1.write((char *) motorCommands, sizeof(motorCommands));
+  }
+
 }
 
 
