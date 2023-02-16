@@ -9,7 +9,7 @@
 #include "servo_api.h"
 #include "servo_types.h"
 
-Dynamixel2Arduino dxl(Serial1, DXL_DIR_PIN); // When initializing the dxl class, you need to feed in the Serial port and direction pin you are going to use.
+Dynamixel2Arduino dxl(Serial, DXL_DIR_PIN); // When initializing the dxl class, you need to feed in the Serial1 port and direction pin you are going to use.
 
 motorValues_t g_motors[NUMBER_OF_MOTORS] = 
                           { {1, DXL_M181,  reverseDirection},
@@ -102,7 +102,7 @@ bool MotorControl_SetPosition(Dynamixel2Arduino *obj, uint8_t motorName, float d
     delay(1000);
     hardwareErrorStatus->all = obj->readControlTableItem(ControlTableItem::HARDWARE_ERROR_STATUS, motorName); // read HW error status register
     // Motor didn't work, let's find out why.
-    //Serial.write((char *)hardwareErrorStatus->all, sizeof(uint8_t));
+    //Serial1.write((char *)hardwareErrorStatus->all, sizeof(uint8_t));
     return false;
   }
   return true;
@@ -135,11 +135,11 @@ bool checkIfMotorAlive(Dynamixel2Arduino *obj, uint8_t motorName)
   if(obj->ping(motorName))
   {
     status = true;
-    //Serial.println("Dynamixel detected");
+    //Serial1.println("Dynamixel detected");
   }
   else
   {
-    //Serial.println("Not detected");
+    //Serial1.println("Not detected");
   }
   return status;
 }
@@ -224,7 +224,7 @@ void setupDynamixelTxBuffer(uint8_t i)
 void setup(void) 
 {
   delay(1000);
-  Serial.begin(HOST_COMMUNICATION_BAUDRATE); // Sets up the external serial port (USB dongle thing)
+  Serial1.begin(HOST_COMMUNICATION_BAUDRATE); // Sets up the external Serial1 port (USB dongle thing)
   dxl.begin(DYNAMIXEL_COMMUNICATION_BAUDRATE); //  Sets up communication with Dynamixel servos 
 
   for(int i = 0; i < NUMBER_OF_MOTORS; i++)
@@ -237,26 +237,27 @@ void setup(void)
 size_t packetRead(dataPacket_t *pCmds, size_t size)
 {
   size_t returnedBytes = 0;
-  returnedBytes =  Serial.readBytes((uint8_t *) pCmds, size);
+  returnedBytes =  Serial1.readBytes((uint8_t *) pCmds, size);
 }
 
 dataPacket_t motorCommands[6];
 dataPacket_t lastMotorCommands[6];
-
+/*
 void loop(void) {
   float number = 92.0; // apparently float and double have the same size on arduino, 4 bytes.
   char arr2[5] = {'H', 'e', 'l', 'p', '!'};
-
-  if(Serial.readBytes(arr2, 5))
+  int totalAvailable = Serial1.available();
+  if(totalAvailable)
   {
+    Serial1.readBytes(arr2, sizeof(char)*5);
     delay(1);
-    Serial.write(arr2, 5);
+    Serial1.write(arr2, 5);
     delay(1);
   }
 }
+*/
 
 
-/*
 void loop(void)
 {
   static bool validData = false;
@@ -267,10 +268,10 @@ void loop(void)
 
   memset((void *) &syncWriteParam, 0x00, sizeof(DYNAMIXEL::InfoSyncWriteInst_t));
   //memset((void *) &motorCommands, 0x00, sizeof(dataPacket_t)*6);
-  Serial.setTimeout(1000);
-  returnedBytes = Serial.readBytes((uint8_t *) motorCommands, (size_t) 54);
-  Serial.write((int) returnedBytes+59);
-  Serial.write("\n");
+  Serial1.setTimeout(1000);
+  returnedBytes = Serial1.readBytes((uint8_t *) motorCommands, (size_t) 54);
+  Serial1.write((int) returnedBytes+59);
+  Serial1.write("\n");
   
   if(54 == returnedBytes)
   {
@@ -282,25 +283,25 @@ void loop(void)
     memcpy((void *) lastMotorCommands, (void *) motorCommands, sizeof(dataPacket_t)*6);
     validData = true;
   }
-  //Serial.write((char *) motorCommands, sizeof(motorCommands));
-  //Serial.write("\n");
+  //Serial1.write((char *) motorCommands, sizeof(motorCommands));
+  //Serial1.write("\n");
   if(!validData)
   {
-    //Serial.println("Idle");
+    //Serial1.println("Idle");
   }
   else
   {
-    //Serial.println("Idle and we detected data");
+    //Serial1.println("Idle and we detected data");
   }
 
 }
-*/
+
 
 /**
 // the setup function runs once when you press reset or power the board
 void setup2() {
   // initialize digital pin LED_BUILTIN as an output.
-  Serial.begin(921600);
+  Serial1.begin(921600);
 }
 
 // the loop function runs over and over again forever
@@ -313,10 +314,10 @@ void loop2() {
     number += 10;
     array[i] = number;
   }
-  Serial.write((uint8_t *)&array, sizeof(number)*16);
+  Serial1.write((uint8_t *)&array, sizeof(number)*16);
   char arr2[5] = {'a'};
 
-  Serial.readBytes(arr2, 5);
-  Serial.write(arr2, 5);
+  Serial1.readBytes(arr2, 5);
+  Serial1.write(arr2, 5);
 }
 */
