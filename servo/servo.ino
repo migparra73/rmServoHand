@@ -9,7 +9,7 @@
 #include "servo_api.h"
 #include "servo_types.h"
 
-Dynamixel2Arduino dxl(Serial, DXL_DIR_PIN); // When initializing the dxl class, you need to feed in the Serial port and direction pin you are going to use.
+Dynamixel2Arduino dxl(Serial1, DXL_DIR_PIN); // When initializing the dxl class, you need to feed in the Serial port and direction pin you are going to use.
 
 motorValues_t g_motors[NUMBER_OF_MOTORS] = 
                           { {1, DXL_M181,  reverseDirection},
@@ -102,7 +102,7 @@ bool MotorControl_SetPosition(Dynamixel2Arduino *obj, uint8_t motorName, float d
     delay(1000);
     hardwareErrorStatus->all = obj->readControlTableItem(ControlTableItem::HARDWARE_ERROR_STATUS, motorName); // read HW error status register
     // Motor didn't work, let's find out why.
-    //Serial1.write((char *)hardwareErrorStatus->all, sizeof(uint8_t));
+    //Serial.write((char *)hardwareErrorStatus->all, sizeof(uint8_t));
     return false;
   }
   return true;
@@ -135,11 +135,11 @@ bool checkIfMotorAlive(Dynamixel2Arduino *obj, uint8_t motorName)
   if(obj->ping(motorName))
   {
     status = true;
-    //Serial1.println("Dynamixel detected");
+    //Serial.println("Dynamixel detected");
   }
   else
   {
-    //Serial1.println("Not detected");
+    //Serial.println("Not detected");
   }
   return status;
 }
@@ -223,9 +223,9 @@ void setupDynamixelTxBuffer(uint8_t i)
 
 void setup(void) 
 {
-  Serial1.begin(HOST_COMMUNICATION_BAUDRATE); // Sets up the external serial port (USB dongle thing)
+  delay(1000);
+  Serial.begin(HOST_COMMUNICATION_BAUDRATE); // Sets up the external serial port (USB dongle thing)
   dxl.begin(DYNAMIXEL_COMMUNICATION_BAUDRATE); //  Sets up communication with Dynamixel servos 
-  dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
 
   for(int i = 0; i < NUMBER_OF_MOTORS; i++)
   {
@@ -234,36 +234,67 @@ void setup(void)
   }
 }
 
-bool packetRead(dataPacket_t *pCmds, size_t size)
+size_t packetRead(dataPacket_t *pCmds, size_t size)
 {
-  return Serial1.readBytes((uint8_t *) pCmds, size);
+  size_t returnedBytes = 0;
+  returnedBytes =  Serial.readBytes((uint8_t *) pCmds, size);
 }
 
+dataPacket_t motorCommands[6];
+dataPacket_t lastMotorCommands[6];
+
+void loop(void) {
+  float number = 92.0; // apparently float and double have the same size on arduino, 4 bytes.
+  char arr2[5] = {'H', 'e', 'l', 'p', '!'};
+
+  if(Serial.readBytes(arr2, 5))
+  {
+    delay(1);
+    Serial.write(arr2, 5);
+    delay(1);
+  }
+}
+
+
+/*
 void loop(void)
 {
-  dataPacket_t motorCommands[6]; 
+  static bool validData = false;
   static_assert(sizeof(motorCommands) == 54, "motorCommands is not 54 bytes!");
   hardwareErrorStatus_t hwStatus;
   DYNAMIXEL::InfoSyncWriteInst_t syncWriteParam;
+  size_t returnedBytes;
 
   memset((void *) &syncWriteParam, 0x00, sizeof(DYNAMIXEL::InfoSyncWriteInst_t));
-  memset((void *) &motorCommands, 0x00, sizeof(dataPacket_t)*6);
-
-  if(packetRead(motorCommands, sizeof(motorCommands)))
+  //memset((void *) &motorCommands, 0x00, sizeof(dataPacket_t)*6);
+  Serial.setTimeout(1000);
+  returnedBytes = Serial.readBytes((uint8_t *) motorCommands, (size_t) 54);
+  Serial.write((int) returnedBytes+59);
+  Serial.write("\n");
+  
+  if(54 == returnedBytes)
   {
     for(int i = 0; i < NUMBER_OF_MOTORS; i++)
     {
-      setupDynamixelPositionPacket(2, motorCommands, &syncWriteParam);
+      setupDynamixelPositionPacket(i, motorCommands, &syncWriteParam);
     }
     MotorControl_SetPositionSyncWrite(&dxl, &syncWriteParam);
+    memcpy((void *) lastMotorCommands, (void *) motorCommands, sizeof(dataPacket_t)*6);
+    validData = true;
+  }
+  //Serial.write((char *) motorCommands, sizeof(motorCommands));
+  //Serial.write("\n");
+  if(!validData)
+  {
+    //Serial.println("Idle");
   }
   else
   {
-    Serial1.write((char *) motorCommands, sizeof(motorCommands));
+    //Serial.println("Idle and we detected data");
   }
 
 }
-
+*/
 
 /**
 // the setup function runs once when you press reset or power the board

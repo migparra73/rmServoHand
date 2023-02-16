@@ -72,9 +72,9 @@ typedef struct
 
 typedef struct __attribute__((packed))
 {
-  uint8_t motorName;
-  float desiredPosition;
-  float trajectoryVelocity;
+  uint8_t motorName; // c 1bytes 
+  float desiredPosition; // 32 bit float 4 bytes
+  float trajectoryVelocity; // 32 bit float
 } dataPacket_t;
 
 static_assert(sizeof(dataPacket_t) == 9, "dataPacket_t is not 9 bytes!");
